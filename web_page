@@ -1,0 +1,379 @@
+import numpy as np
+import os
+import pickle
+import streamlit as st
+import sys
+import tensorflow as tf
+import urllib
+
+sys.path.append('tl_gan')
+sys.path.append('pg_gan')
+import feature_axis
+import tfutil
+import tfutil_cpu
+
+# This should not be hashed by Streamlit when using st.cache.
+TL_GAN_HASH_FUNCS = {
+    tf.Session : id
+}
+
+def main():
+    st.title("Welcome to the world of Programming & AI")
+
+    """
+    We are living in an era where we definitely must have heard about the term AI . And many a time we might have wondered 
+    what exactly is this AI . And why it is getting discussed now a days. Lets find out
+
+    As per the definition from Wikipedia , `Artificial intelligence (AI) is intelligence demonstrated by machines, unlike the natural intelligence displayed by humans and animals,
+    which involves consciousness and emotionality.` In the recent years capability of AI has progressed enormously and its effect can be seen in every field . Chatbots , Amazon Alexa,
+    Siri , Google Map , Robotics , Social Media , Airline industry are a small example where we can see the usage of AI.
+
+    But but but... What's the starting point of AI ? 
+
+    You might have guessed it right . It's programming . So what is programming ? Let us start. """
+
+    st.header('What is programming ?')
+    st.write('Programming is the process of creating a set of instructions that tell a computer how to perform a task. Programming can be done using a variety of computer programming languages, such as JavaScript, Python, and C++. And what is a programming language, it is just like a normal language , which we used to chat with computers. ')
+
+    st.header('Which programming language is the best ?')
+    st.write('Just as we in day to day life cannot choose , which spoken language is the best. Similarly in the world of computers, all the programming languages are beautiful.') 
+    
+    st.write('But as we are focused on understanding the working of AI , ``Python`` is the most preferred language for it. Why python ? , because it is relatively easy to understand and it has a huge array of applications.Python is more intuitive than other programming dialects. And with a great community support. (I promise ,you can find solution for any of your python related issues :blush: ) ')
+
+    st.subheader('Let deep dive into the world of Python. But before that lets play with an AI program , which can generate an imaginary image based on random values ')
+
+    st.write('On the LHS, you can play with the sliders . But beware, selecting some of the features may produce some **biases**. This AI program used , a neural network which is known as ``` Transparent Latent-space GAN method ``` for tuning the output face characteristics ') 
+    st.write('  ')
+
+
+    # Download all data files if they aren't already in the working directory.
+    for filename in EXTERNAL_DEPENDENCIES.keys():
+        download_file(filename)
+
+    # Read in models from the data files.
+    tl_gan_model, feature_names = load_tl_gan_model()
+    session, pg_gan_model = load_pg_gan_model()
+
+    st.sidebar.title('Features')
+    seed = 27834096
+    # If the user doesn't want to select which features to control, these will be used.
+    default_control_features = ['Young','Smiling','Male']
+
+    if st.sidebar.checkbox('Show advanced options'):
+        # Randomly initialize feature values. 
+        features = get_random_features(feature_names, seed)
+
+        # Some features are badly calibrated and biased. Removing them
+        block_list = ['Attractive', 'Big_Lips', 'Big_Nose', 'Pale_Skin']
+        sanitized_features = [feature for feature in features if feature not in block_list]
+        
+        # Let the user pick which features to control with sliders.
+        control_features = st.sidebar.multiselect( 'Control which features?',
+            sorted(sanitized_features), default_control_features)
+    else:
+        features = get_random_features(feature_names, seed)
+        # Don't let the user pick feature values to control.
+        control_features = default_control_features
+    
+    # Insert user-controlled values from sliders into the feature vector.
+    for feature in control_features:
+        features[feature] = st.sidebar.slider(feature, 0, 100, 50, 5)
+
+
+    st.sidebar.title('Note')
+    st.sidebar.write(
+        """Playing with the sliders, you _will_ find **biases** that exist in this model.
+        """
+    )
+    st.sidebar.write(
+        """For example, moving the `Smiling` slider can turn a face from masculine to feminine or from lighter skin to darker. 
+        """
+    )
+    st.sidebar.write(
+        """Apps like these that allow you to visually inspect model inputs help you find these biases so you can address them in your model _before_ it's put into production.
+        """
+    )
+
+
+    # Generate a new image from this feature vector (or retrieve it from the cache).
+    with session.as_default():
+        image_out = generate_image(session, pg_gan_model, tl_gan_model,
+                features, feature_names)
+
+    st.image(image_out, width=500, use_column_width=False)
+
+    st.header('Let us start with Python !! ')
+
+    with st.beta_expander(label=' What is Python ?'):
+        st.write('Python is a cross-platform programming language, which means that it can run on multiple platforms like Windows, macOS, Linux, and has even been ported to the Java and .NET virtual machines. It is free and open-source.')
+        st.write('Even though most of today\'s Linux and Mac have Python pre-installed in it, the version might be out-of-date. So, it is always a good idea to install the most current version.')
+    
+    with st.beta_expander(label ='Python installation instructions. '):
+        st.subheader('A. The Easiest Way to Run Python')
+        st.write('The easiest way to run Python is by using Thonny IDE.')
+        st.write('The **Thonny IDE** comes with the latest version of Python bundled in it. So you don\'t have to install Python separately.Follow the following steps to run Python on your computer.')
+        st.write('  1.Download Thonny IDE.')
+        st.write('  2.Run the installer to install Thonny on your computer.')
+        st.write('  3.Go to: File > New. Then save the file with **.py** extension. For example, **hello.py**, **example.py** , etc.You can give any name to the file. However, the file name should end with .py')
+        st.write('  4.Write Python code in the file and save it.')
+        st.subheader('B. Run Python in the Integrated Development Environment (IDE)')
+        st.write('We can use any text editing software to write a Python script file.')
+        st.write('We just need to save it with the .py extension. But using an IDE can make our life a lot easier. IDE is a piece of software that provides useful features like code hinting, syntax highlighting and checking, file explorers, etc. to the programmer for application development.')
+        st.write('By the way, when you install Python, an IDE named **IDLE** is also installed. You can use it to run Python on your computer. It\'s a decent IDE for beginners.Apart from that you can install other popular IDE like **Visual Studio , Pycharm , Spyder etc**')
+        st.subheader('Your first Python Program')
+        st.write('Now that we have Python up and running, we can write our first Python program.')
+        st.write('Let\'s create a very simple program called Hello World. A "Hello, World!" is a simple program that outputs Hello, World! on the screen. Since it\'s a very simple program, it\'s often used to introduce a new programming language to beginners.')
+        st.write('Type the following code') 
+        st.write('**print(','\'Hello World\')**')
+        st.write('in any text editor or an IDE and save it as **hello_world.py**','.Then, run the file. You will get the following output. **Hello World** ')
+        st.write('*Congratulations!! You ran your first python program :thumbsup:*')
+
+    with st.beta_expander(label ='Python Keywords and Identifier.'):
+        st.subheader('Python Keywords')
+        st.write('Keywords are the reserved words in Python.')
+        st.write('We cannot use a keyword as a variable name, function name or any other identifier. They are used to define the syntax and structure of the Python language.')
+        st.write('In Python, keywords are case sensitive.')
+        st.write('There are 33 keywords in Python 3.7. This number can vary slightly over the course of time.')
+        st.write('All the keywords except **True, False and None** are in lowercase and they must be written as they are. The list of all the keywords is given below.')
+        st.image('keywords.jpg',width=650,use_column_width=False)
+        st.write('Looking at all the keywords at once and trying to figure out what they mean might be overwhelming. So let us ignore it for some moment and let us focus on that we cannot use these names as any other identifier')
+        st.subheader('Python Identifiers')
+        st.write('An identifier is a name given to entities like class, functions, variables, etc. It helps to differentiate one entity from another.')
+        st.write('Rules for writing identifiers')
+        st.write('1.Identifiers can be a combination of letters in lowercase (a to z) or uppercase (A to Z) or digits (0 to 9) or an underscore _ . Names like **myClass, var_1 and print_this_to_screen**, all are valid example.')
+        st.write('2.An identifier cannot start with a digit. **1variable** is invalid, but **variable1** is a valid name.')
+        st.write('3.Keywords cannot be used as identifiers. ')
+        st.write('4.We cannot use special symbols like !, @, #, $, etc. in our identifier. ')
+        st.write('5.An identifier can be of any length.')
+        st.subheader('Things to Remember')
+        st.write('A. Python is a case-sensitive language. This means, **Variable** and **variable** are not the same.Multiple words can be separated using an underscore, like **this_is_a_long_variable.**')
+        st.write('B. Most of the programming languages like C, C++, and Java use braces { } to define a block of code. Python, however, uses indentation.')
+        st.write('C. Code block like a body of a function, loop, etc.**(All this will be discussed later)** starts with indentation and ends with the first unindented line. The amount of indentation is up to you, but it must be consistent throughout that block.')
+        st.write('D. Comments are very important while writing a program. They describe what is going on inside a program, so that a person looking at the source code does not have a hard time figuring it out.Comments are for programmers to better understand a program. Python Interpreter ignores comments.In Python, we use the **hash (#)** symbol to start writing a comment.')
+        st.write('E. For multi line comment , we can use Another way of doing this is to use triple quotes, either  \'\'\' or """. ')
+
+
+    with st.beta_expander(label ='Python Variables and Datatypes.'):
+        st.subheader('Python Variables')
+        st.write('A variable is a named location used to store data in the memory. It is helpful to think of variables as a container that holds data that can be changed later in the program')
+        st.write('For example , number = 10')
+        st.write('Here, we have created a variable named **number**. We have assigned the value 10 to the variable. You can use the **assignment operator =** to assign a value to a variable.')
+        st.write('You can think of variables as a bag to store books in it and that book can be replaced at any time. :smile:')
+        st.write('number = 10')
+        st.write('number = 1.1')
+        st.write('Initially, the value of **number** was **10**. Later, it was changed to **1.1**. This reassignment can be done several times')
+        st.write('Use **print(number)** command to print the value stored in the variable. Here **number** is the variable name. In this case **1.1** will be printed')
+        st.write('***Note: In Python, we don\'t actually assign values to the variables. Instead, Python gives the reference of the object(value) to the variable.***')
+        st.write('** You can assign multiple values to multiple variables** like ***a, b, c = 5, 3.2, "Hello"*** OR **x = y = z = "same"**')
+        st.write("In first case , a will be 5 , b will be 3.2 and c='Hello' ")
+        st.subheader('Literal')
+        st.write('Literal is a raw data given in a variable or constant. In Python, there are various types of literals they are as follows:')
+        st.write('**Numeric Literals** - Numeric Literals are immutable (unchangeable). Numeric literals can belong to 3 different numerical types: *Integer, Float, and Complex.*')
+        st.write('**String literals** - A string literal is a sequence of characters surrounded by quotes. We can use both single, double, or triple quotes for a string. And, a character literal is a single character surrounded by single or double quotes.Example , *strings = "This is Python"*')
+        st.write('**Boolean literals** - A Boolean literal can have any of the two values: True or False.In Python, True represents the value as 1 and False as 0')        
+        st.write('**Special literals** - Python contains one special literal i.e. *None*. We use it to specify that the field has not been created.')
+        st.write("**Literal Collections**-There are four different literal collections *List literals, Tuple literals, Dict literals, and Set literals.* We will deep dive into it , don't worry")
+        st.subheader(' Decoding Literal Collections ')
+        st.write("")
+        st.write('**Python List**')
+        st.write("List is an ordered sequence of items. It is one of the most used datatype in Python and is very flexible. All the items in a list do not need to be of the same type. Declaring a list is pretty straight forward. Items separated by commas are enclosed within brackets [ ]. Example **a = [1, 2.2, 'python']**.We can use the slicing operator [ ] to extract an item or a range of items from a list. The index starts from 0 in Python.")
+        st.image('list.jpg',width=500,use_column_width=False)
+        st.write('Lists are mutable, meaning, the value of elements of a list can be altered.')
+        st.write("")
+        st.write('**Python Tuple**')
+        st.write("Tuple is an ordered sequence of items same as a list. The only difference is that tuples are immutable. Tuples once created cannot be modified.Tuples are used to write-protect data and are usually faster than lists as they cannot change dynamically.It is defined within parentheses () where items are separated by commas.We can use the slicing operator [] to extract items but we cannot change its value." )
+        st.image('tuples.jpg',width=500,use_column_width=False)
+        st.write("")
+        st.write("**Python Set**")
+        st.write("Set is an unordered collection of unique items. Set is defined by values separated by comma inside braces { }. Items in a set are not ordered.We can perform set operations like union, intersection on two sets. Sets have unique values. They eliminate duplicates.Since, set are unordered collection, indexing has no meaning. Hence, the slicing operator [] does not work.")
+        st.image('set.jpg',width=500,use_column_width=False)
+        st.write("")
+        st.write("**Python Dictionary**")
+        st.write("Dictionary is an unordered collection of key-value pairs.It is generally used when we have a huge amount of data. Dictionaries are optimized for retrieving data. We must know the key to retrieve the value.In Python, dictionaries are defined within braces \{\} with each item being a pair in the form key:value. Key and value can be of any type.")        
+        st.image('dict.jpg',width=500,use_column_width=False)
+
+    with st.beta_expander(label ='Python Operators '):
+        st.header("What are operators in python?")
+        st.write("Operators are special symbols in Python that carry out arithmetic or logical computation. The value that the operator operates on is called the operand.")
+        st.write("For example : 2+3 will result in 5 .Here, **+** is the operator that performs addition. 2 and 3 are the operands and 5 is the output of the operation.")
+        st.write('**Arithmetic operators**')
+        st.write("Arithmetic operators are used to perform mathematical operations like addition, subtraction, multiplication, etc.")
+        st.image('arith.jpg',width=600,use_column_width=False)
+        st.write("")
+        st.write("**Comparison operators**")
+        st.write('Comparison operators are used to compare values. It returns either True or False according to the condition')
+        st.image('comp.jpg',width=600,use_column_width=False)
+        st.write("")
+        st.write("**Logical operators**")
+        st.write('Logical operators are the and, or, not operators.')
+        st.image('log.jpg',width=600,use_column_width=False)
+        st.write("")
+        st.write("**Bitwise  operators**")
+        st.write('Bitwise operators act on operands as if they were strings of binary digits. They operate bit by bit, hence the name.For example, 2 is 10 in binary and 7 is 111.In the table below: Let x = 10 (0000 1010 in binary) and y = 4 (0000 0100 in binary)')
+        st.image('bit.jpg',width=600,use_column_width=False)
+        st.write("")
+        st.write("**Assignment operators**")
+        st.write("Assignment operators are used in Python to assign values to variables.a = 5 is a simple assignment operator that assigns the value 5 on the right to the variable a on the left.There are various compound operators in Python like a += 5 that adds to the variable and later assigns the same. It is equivalent to a = a + 5.")
+        st.image('assign.jpg',width=600,use_column_width=False)
+        st.write("")
+        Python if...else Statement
+        st.write("Python language offers some special types of operators like the identity operator or the membership operator. They are described below with examples.")
+        st.write("**Identity operatorss :**  *is* and *is not* are the identity operators in Python. They are used to check if two values (or variables) are located on the same part of the memory. Two variables that are equal does not imply that they are identical. Kindly look at the below example ")
+        st.image('iden.jpg',width=600,use_column_width=False)
+        st.write('Here, we see that x1 and y1 are integers of the same values, so they are equal as well as identical. Same is the case with x2 and y2 (strings).But x3 and y3 are lists. They are equal but not identical. It is because the interpreter locates them separately in memory although they are equal.')
+        st.write("")
+        st.write("**Membership operators : ** *in and not in* are the membership operators in Python. They are used to test whether a value or variable is found in a sequence (string, list, tuple, set and dictionary).In a dictionary we can only test for presence of key, not the value.")
+        st.image('mem.jpg',width=600,use_column_width=False)
+
+
+    with st.beta_expander(label ='Python Flow Controls'):
+        st.header("Python if...else Statement")
+        st.write("Decision making is required when we want to execute a code only if a certain condition is satisfied.The if…elif…else statement is used in Python for decision making.")
+        st.write("")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def download_file(file_path):
+    # Don't download the file twice. (If possible, verify the download using the file length.)
+    if os.path.exists(file_path):
+        if "size" not in EXTERNAL_DEPENDENCIES[file_path]:
+            return
+        elif os.path.getsize(file_path) == EXTERNAL_DEPENDENCIES[file_path]["size"]:
+            return
+
+    # These are handles to two visual elements to animate.
+    weights_warning, progress_bar = None, None
+    try:
+        weights_warning = st.warning("Downloading %s..." % file_path)
+        progress_bar = st.progress(0)
+        with open(file_path, "wb") as output_file:
+            with urllib.request.urlopen(EXTERNAL_DEPENDENCIES[file_path]["url"]) as response:
+                length = int(response.info()["Content-Length"])
+                counter = 0.0
+                MEGABYTES = 2.0 ** 20.0
+                while True:
+                    data = response.read(8192)
+                    if not data:
+                        break
+                    counter += len(data)
+                    output_file.write(data)
+
+                    # We perform animation by overwriting the elements.
+                    weights_warning.warning("Downloading %s... (%6.2f/%6.2f MB)" %
+                        (file_path, counter / MEGABYTES, length / MEGABYTES))
+                    progress_bar.progress(min(counter / length, 1.0))
+
+    # Finally, we remove these visual elements by calling .empty().
+    finally:
+        if weights_warning is not None:
+            weights_warning.empty()
+        if progress_bar is not None:
+            progress_bar.empty()
+
+# Ensure that load_pg_gan_model is called only once, when the app first loads.
+@st.cache(allow_output_mutation=True, hash_funcs=TL_GAN_HASH_FUNCS)
+def load_pg_gan_model():
+    """
+    Create the tensorflow session.
+    """
+    # Open a new TensorFlow session.
+    config = tf.ConfigProto(allow_soft_placement=True)
+    session = tf.Session(config=config)
+
+    # Must have a default TensorFlow session established in order to initialize the GAN.
+    with session.as_default():
+        # Read in either the GPU or the CPU version of the GAN
+        with open(MODEL_FILE_GPU if USE_GPU else MODEL_FILE_CPU, 'rb') as f:
+            G = pickle.load(f)
+    return session, G
+
+# Ensure that load_tl_gan_model is called only once, when the app first loads.
+@st.cache(hash_funcs=TL_GAN_HASH_FUNCS)
+def load_tl_gan_model():
+    """
+    Load the linear model (matrix) which maps the feature space
+    to the GAN's latent space.
+    """
+    with open(FEATURE_DIRECTION_FILE, 'rb') as f:
+        feature_direction_name = pickle.load(f)
+
+    # Pick apart the feature_direction_name data structure.
+    feature_direction = feature_direction_name['direction']
+    feature_names = feature_direction_name['name']
+    num_feature = feature_direction.shape[1]
+    feature_lock_status = np.zeros(num_feature).astype('bool')
+
+    # Rearrange feature directions using Shaobo's library function.
+    feature_direction_disentangled = \
+        feature_axis.disentangle_feature_axis_by_idx(
+            feature_direction,
+            idx_base=np.flatnonzero(feature_lock_status))
+    return feature_direction_disentangled, feature_names
+
+def get_random_features(feature_names, seed):
+    """
+    Return a random dictionary from feature names to feature
+    values within the range [40,60] (out of [0,100]).
+    """
+    np.random.seed(seed)
+    features = dict((name, 40+np.random.randint(0,21)) for name in feature_names)
+    return features
+
+# Hash the TensorFlow session, the pg-GAN model, and the TL-GAN model by id
+# to avoid expensive or illegal computations.
+@st.cache(show_spinner=False, hash_funcs=TL_GAN_HASH_FUNCS)
+def generate_image(session, pg_gan_model, tl_gan_model, features, feature_names):
+    """
+    Converts a feature vector into an image.
+    """
+    # Create rescaled feature vector.
+    feature_values = np.array([features[name] for name in feature_names])
+    feature_values = (feature_values - 50) / 250
+    # Multiply by Shaobo's matrix to get the latent variables.
+    latents = np.dot(tl_gan_model, feature_values)
+    latents = latents.reshape(1, -1)
+    dummies = np.zeros([1] + pg_gan_model.input_shapes[1][1:])
+    # Feed the latent vector to the GAN in TensorFlow.
+    with session.as_default():
+        images = pg_gan_model.run(latents, dummies)
+    # Rescale and reorient the GAN's output to make an image.
+    images = np.clip(np.rint((images + 1.0) / 2.0 * 255.0),
+                              0.0, 255.0).astype(np.uint8)  # [-1,1] => [0,255]
+    if USE_GPU:
+        images = images.transpose(0, 2, 3, 1)  # NCHW => NHWC
+    return images[0]
+
+USE_GPU = False
+FEATURE_DIRECTION_FILE = "feature_direction_2018102_044444.pkl"
+MODEL_FILE_GPU = "karras2018iclr-celebahq-1024x1024-condensed.pkl"
+MODEL_FILE_CPU = "karras2018iclr-celebahq-1024x1024-condensed-cpu.pkl"
+EXTERNAL_DEPENDENCIES = {
+    "feature_direction_2018102_044444.pkl" : {
+        "url": "https://streamlit-demo-data.s3-us-west-2.amazonaws.com/facegan/feature_direction_20181002_044444.pkl",
+        "size": 164742
+    },
+    "karras2018iclr-celebahq-1024x1024-condensed.pkl": {
+        "url": "https://streamlit-demo-data.s3-us-west-2.amazonaws.com/facegan/karras2018iclr-celebahq-1024x1024-condensed.pkl",
+        "size": 92338293
+    },
+    "karras2018iclr-celebahq-1024x1024-condensed-cpu.pkl": {
+        "url": "https://streamlit-demo-data.s3-us-west-2.amazonaws.com/facegan/karras2018iclr-celebahq-1024x1024-condensed-cpu.pkl",
+        "size": 92340233
+    }
+}
+
+if __name__ == "__main__":
+    main()
